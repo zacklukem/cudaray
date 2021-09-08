@@ -1,7 +1,14 @@
 {
 	"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
 	"files.associations": {
-		"*.cpp": "cuda-cpp",
-		"*.h": "cuda-cpp"
+		"*.html": "html",
+		"*.njk": "html",
+		"*.hh": "cpp",
+		"*.cpp": "cpp",
+		"*.h": "cuda-cpp",
+		"string_view": "cpp",
+		"*.tcc": "cpp",
+		"limits": "cpp",
+		"*.cu": "cuda-cpp"
 	}
 }

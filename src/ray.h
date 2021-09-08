@@ -1,8 +1,8 @@
 #ifndef RAY_H
 #define RAY_H
 
-#include "glm.inl"
 #include "cuda.h"
+#include "glm.inl"
 
 namespace cudaray {
 

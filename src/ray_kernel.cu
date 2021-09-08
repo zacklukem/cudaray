@@ -8,33 +8,10 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-// 32 bit Murmur3 hash
-__device__ uint32_t hash(uint32_t k) {
-  k ^= k >> 16;
-  k *= 0x85ebca6b;
-  k ^= k >> 13;
-  k *= 0xc2b2ae35;
-  k ^= k >> 16;
-  return k & (0xffffffff - 1);
-}
-
-__device__ float random_float(curandState_t& rand_state) {
-  return curand(&rand_state) / (RAND_MAX + 1.0);
-}
-
-__device__ float random_float(curandState_t& rand_state, float min, float max) {
-  return min + (max - min) * random_float(rand_state);
-}
-
-__device__ glm::vec3 random_in_unit_sphere(curandState_t& rand_state) {
-  while (true) {
-    auto p = glm::vec3(random_float(rand_state, -1, 1),
-                       random_float(rand_state, -1, 1),
-                       random_float(rand_state, -1, 1));
-    if (glm::dot(p, p) >= 1)
-      continue;
-    return p;
-  }
+__device__ glm::vec3 solarAttn(const glm::vec3& vec) {
+  auto len = glm::length(vec);
+  // return glm::max(len * 100.0f - 99.0f, 0.0f);
+  return len < 0.3f ? glm::vec3(3.0f) : glm::vec3(0.5f, 0.7f, 1.0f);
 }
 
 __device__ glm::vec3 rayColor(curandState_t& rand_state,
@@ -42,24 +19,38 @@ __device__ glm::vec3 rayColor(curandState_t& rand_state,
                               const cudaray::Hittable& world, int depth) {
   glm::vec3 color(0.0f, 0.0f, 0.0f);
   cudaray::Ray current_ray = cudaray::Ray(ray.origin, ray.direction);
-  float factor = 1.0f;
+  glm::vec3 factor = glm::vec3(1.0f);
   int i = 0;
   while (i < depth) {
+    i++;
     cudaray::Hit rec;
     if (world.hit(current_ray, 0.001, infinity, rec)) {
-      glm::vec3 target =
-          rec.point + rec.normal + random_in_unit_sphere(rand_state);
-
-      current_ray.origin = rec.point;
-      current_ray.direction = target - rec.point;
-      i++;
-      factor *= 0.5f;
-
+      // Ray scattered;
+      glm::vec3 attenuation;
+      if (rec.mat->scatter(current_ray, rec, attenuation, current_ray,
+                           rand_state)) {
+        factor *= attenuation;
+      } else {
+        color = rec.mat->emitted(glm::vec3());
+        break;
+      }
     } else {
-      glm::vec3 unit_direction = glm::normalize(ray.direction);
-      auto t = 0.5f * (unit_direction.y + 1.0f);
-      color =
-          (1.0f - t) * glm::vec3(1.0, 1.0, 1.0) + t * glm::vec3(0.5, 0.7, 1.0);
+// #define SUN_ENABLED
+#ifdef SUN_ENABLED
+      glm::vec3 unit_direction = glm::normalize(current_ray.direction);
+
+      glm::vec3 cross_d_sun =
+          glm::cross(glm::normalize(glm::vec3(-1)), unit_direction);
+      // if (almostZero(cross_d_sun)) {
+      color = solarAttn(cross_d_sun);
+#else
+      color = glm::vec3(0.03f);
+#endif
+      // } else {
+      // auto t = 0.5f * (unit_direction.y + 1.0f);
+      // color = 0.3f *
+      // ((1.0f - t) * glm::vec3(1.0, 1.0, 1.0) + t * glm::vec3(0.5, 0.7, 1.0));
+      // }
       break;
     }
   }
